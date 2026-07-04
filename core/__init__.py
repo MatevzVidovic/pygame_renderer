@@ -1,8 +1,10 @@
 from core.renderer import (
     CoordinatePlacing,
     Elipse,
+    HSV,
     ImgRect,
     ObjectTree,
+    RGB,
     Rect,
     Splat,
     VisualProgram,
@@ -13,8 +15,10 @@ from core.renderer import (
 __all__ = [
     "CoordinatePlacing",
     "Elipse",
+    "HSV",
     "ImgRect",
     "ObjectTree",
+    "RGB",
     "Rect",
     "Splat",
     "VisualProgram",

@@ -4,12 +4,47 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Protocol, TypeAlias
+from typing import Protocol, TypeAlias, runtime_checkable
 
 import pygame
 
-Color: TypeAlias = tuple[int, int, int] | tuple[int, int, int, int]
+ColorTuple: TypeAlias = tuple[int, int, int] | tuple[int, int, int, int]
 Position: TypeAlias = Iterable[float]
+
+
+class RGB:
+    def __init__(self, r: int, g: int, b: int) -> None:
+        self.color = (r, g, b)
+
+
+class HSV:
+    def __init__(self, h: float, s: float, v: float) -> None:
+        h %= 360
+        c = v * s
+        x = c * (1 - abs((h / 60) % 2 - 1))
+        m = v - c
+
+        if h < 60:
+            r, g, b = c, x, 0
+        elif h < 120:
+            r, g, b = x, c, 0
+        elif h < 180:
+            r, g, b = 0, c, x
+        elif h < 240:
+            r, g, b = 0, x, c
+        elif h < 300:
+            r, g, b = x, 0, c
+        else:
+            r, g, b = c, 0, x
+
+        self.color = (
+            int((r + m) * 255),
+            int((g + m) * 255),
+            int((b + m) * 255),
+        )
+
+
+Color: TypeAlias = RGB | HSV | ColorTuple
 
 
 class CoordinatePlacing(Enum):
@@ -109,6 +144,7 @@ class Splat:
 ObjectTree: TypeAlias = Splat | Sequence["ObjectTree"]
 
 
+@runtime_checkable
 class VisualProgram(Protocol):
     def step(self) -> None:
         pass
@@ -122,7 +158,7 @@ def render_object_tree(
     object_tree: ObjectTree,
     background_color: Color = (20, 20, 24),
 ) -> None:
-    surface.fill(background_color)
+    surface.fill(_color_tuple(background_color))
     _render_node(surface, object_tree)
 
 
@@ -142,9 +178,9 @@ def _render_splat(surface: pygame.Surface, splat: Splat) -> None:
     rect = pygame.Rect(draw_x, draw_y, asset.width, asset.height)
 
     if isinstance(asset, Rect):
-        pygame.draw.rect(surface, asset.color, rect)
+        pygame.draw.rect(surface, _color_tuple(asset.color), rect)
     elif isinstance(asset, Elipse):
-        pygame.draw.ellipse(surface, asset.color, rect)
+        pygame.draw.ellipse(surface, _color_tuple(asset.color), rect)
     else:
         surface.blit(asset.image, rect)
 
@@ -159,6 +195,12 @@ def _top_left(asset: Asset, x: float, y: float) -> tuple[float, float]:
 def _validate_scaling_factor(scaling_factor: float) -> None:
     if scaling_factor <= 0:
         raise ValueError("scaling_factor must be greater than 0")
+
+
+def _color_tuple(color: Color) -> ColorTuple:
+    if isinstance(color, RGB | HSV):
+        return color.color
+    return color
 
 
 def main(

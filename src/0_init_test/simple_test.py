@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from core.renderer import Elipse, ObjectTree, Rect, Splat, VisualProgram, main
+from core.renderer import Elipse, ObjectTree, RGB, Rect, Splat, VisualProgram, main
 
 
-class SimpleVisual:
+class SimpleVisual(VisualProgram):
     def __init__(self) -> None:
         self.width = 800
         self.height = 600
@@ -22,10 +22,10 @@ class SimpleVisual:
             ]
         )
 
-        self.background = Rect(800, (28, 30, 36), 600)
-        self.frame = Rect(620, (55, 62, 76), 390)
-        self.ball = Elipse(72, (79, 209, 197))
-        self.highlight = Elipse(18, (230, 250, 255))
+        self.background = Rect(800, RGB(28, 30, 36), 600)
+        self.frame = Rect(620, RGB(55, 62, 76), 390)
+        self.ball = Elipse(72, RGB(79, 209, 197))
+        self.highlight = Elipse(18, RGB(230, 250, 255))
 
     def step(self) -> None:
         self.positions += self.velocities
@@ -50,7 +50,12 @@ class SimpleVisual:
 
 def run() -> None:
     visual: VisualProgram = SimpleVisual()
-    main(visual, size=(800, 600), title="simple renderer test")
+    main(
+        visual,
+        size=(800, 600),
+        background_color=RGB(20, 20, 24),
+        title="simple renderer test",
+    )
 
 
 if __name__ == "__main__":
