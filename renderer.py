@@ -17,28 +17,50 @@ class CoordinatePlacing(Enum):
     TOP_LEFT = auto()
 
 
-@dataclass(frozen=True)
 class Rect:
-    width: float
-    color: Color
-    height: float | None = None
-    coordinate_placing: CoordinatePlacing = CoordinatePlacing.CENTER
+    def __init__(
+        self,
+        width: float,
+        color: Color,
+        height: float | None = None,
+        coordinate_placing: CoordinatePlacing = CoordinatePlacing.CENTER,
+    ) -> None:
+        self.width = width
+        self.height = width if height is None else height
+        self.color = color
+        self.coordinate_placing = coordinate_placing
 
-    @property
-    def draw_height(self) -> float:
-        return self.width if self.height is None else self.height
+    def scale(self, scaling_factor: float) -> Rect:
+        _validate_scaling_factor(scaling_factor)
+        return Rect(
+            self.width * scaling_factor,
+            self.color,
+            self.height * scaling_factor,
+            self.coordinate_placing,
+        )
 
 
-@dataclass(frozen=True)
 class Elipse:
-    width: float
-    color: Color
-    height: float | None = None
-    coordinate_placing: CoordinatePlacing = CoordinatePlacing.CENTER
+    def __init__(
+        self,
+        width: float,
+        color: Color,
+        height: float | None = None,
+        coordinate_placing: CoordinatePlacing = CoordinatePlacing.CENTER,
+    ) -> None:
+        self.width = width
+        self.height = width if height is None else height
+        self.color = color
+        self.coordinate_placing = coordinate_placing
 
-    @property
-    def draw_height(self) -> float:
-        return self.width if self.height is None else self.height
+    def scale(self, scaling_factor: float) -> Elipse:
+        _validate_scaling_factor(scaling_factor)
+        return Elipse(
+            self.width * scaling_factor,
+            self.color,
+            self.height * scaling_factor,
+            self.coordinate_placing,
+        )
 
 
 class ImgRect:
@@ -61,6 +83,18 @@ class ImgRect:
             loaded_image,
             (int(self.width), int(self.height)),
         )
+
+    def scale(self, scaling_factor: float) -> ImgRect:
+        _validate_scaling_factor(scaling_factor)
+        scaled = object.__new__(ImgRect)
+        scaled.width = self.width * scaling_factor
+        scaled.height = self.height * scaling_factor
+        scaled.coordinate_placing = self.coordinate_placing
+        scaled.image = pygame.transform.smoothscale(
+            self.image,
+            (int(scaled.width), int(scaled.height)),
+        )
+        return scaled
 
 
 Asset: TypeAlias = Rect | Elipse | ImgRect
@@ -104,9 +138,8 @@ def _render_node(surface: pygame.Surface, node: ObjectTree) -> None:
 def _render_splat(surface: pygame.Surface, splat: Splat) -> None:
     y, x = splat.pos
     asset = splat.asset
-    height = _height(asset)
     draw_x, draw_y = _top_left(asset, x, y)
-    rect = pygame.Rect(draw_x, draw_y, asset.width, height)
+    rect = pygame.Rect(draw_x, draw_y, asset.width, asset.height)
 
     if isinstance(asset, Rect):
         pygame.draw.rect(surface, asset.color, rect)
@@ -120,13 +153,12 @@ def _top_left(asset: Asset, x: float, y: float) -> tuple[float, float]:
     if asset.coordinate_placing is CoordinatePlacing.TOP_LEFT:
         return x, y
 
-    return x - asset.width / 2, y - _height(asset) / 2
+    return x - asset.width / 2, y - asset.height / 2
 
 
-def _height(asset: Asset) -> float:
-    if isinstance(asset, ImgRect):
-        return asset.height
-    return asset.draw_height
+def _validate_scaling_factor(scaling_factor: float) -> None:
+    if scaling_factor <= 0:
+        raise ValueError("scaling_factor must be greater than 0")
 
 
 def main(
