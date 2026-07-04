@@ -4,11 +4,10 @@ import numpy as np
 
 from core.renderer import Elipse, ObjectTree, RGB, Rect, Splat, VisualProgram, main
 
+SCREEN_SIZE = (800, 600)
 
 class SimpleVisual(VisualProgram):
     def __init__(self) -> None:
-        self.width = 800
-        self.height = 600
         self.positions = np.array(
             [
                 [300.0, 400.0],
@@ -32,15 +31,14 @@ class SimpleVisual(VisualProgram):
 
         for point, velocity in zip(self.positions, self.velocities):
             radius = 36
-            if point[0] - radius < 0 or point[0] + radius > self.height:
+            if point[0] - radius < 0 or point[0] + radius > SCREEN_SIZE[1]:
                 velocity[0] *= -1
-            if point[1] - radius < 0 or point[1] + radius > self.width:
+            if point[1] - radius < 0 or point[1] + radius > SCREEN_SIZE[0]:
                 velocity[1] *= -1
 
     def get_object_tree(self) -> ObjectTree:
         return [
-            Splat(self.background, (self.height / 2, self.width / 2)),
-            Splat(self.frame, (self.height / 2, self.width / 2)),
+            Splat(self.frame, (SCREEN_SIZE[1] / 2, SCREEN_SIZE[0] / 2)),
             [
                 Splat(self.ball, self.positions[0]),
                 Splat(self.highlight, self.positions[1]),
@@ -52,7 +50,7 @@ def run() -> None:
     visual: VisualProgram = SimpleVisual()
     main(
         visual,
-        size=(800, 600),
+        size=SCREEN_SIZE,
         background_color=RGB(20, 20, 24),
         title="simple renderer test",
     )
