@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from renderer import Elipse, ObjectTree, Rect, Splat, VisualProgram, main
+from core.renderer import Elipse, ObjectTree, Rect, Splat, VisualProgram, main
 
 
 class SimpleVisual:
