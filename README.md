@@ -35,6 +35,43 @@ But is is a lot more complicated then the next option.
 
 Just have a python tree (list of lists of lists...) of objects that will be rendered (rects, circles, image rects).
 And have an fn that takes that tree, clears the frame, and then sequentially renders the objects in the tree with recursion.
+(In the simplest case, the tree of objects you are maintaining in a visual or a game can simply be a list.
+Like, just have them listed sequentially as you want them to be rendered (with overlapping objects, the later one will be rendered on top).)
 
-In the simplest cae, the tree ovf objects you are maintaining in a visual or a game can simply be a list.
-Like, just have them listed sequentially as you want them to be rendered (with overlapping objects, the later one will be rendered on top).
+The renderer fn should take some sort of object Splat:
+In some form like: (asset: Asset, pos: iterable)
+Where iterable is supposed to have 2 elements, like (pos_y, pos_x).
+And since we define it with the general iterable, we can also put in slices (views) of numpy arrays, which makes things efficient,
+since in our visuals and games we will probably simply be computing positions with numpy arrays.
+
+And Asset isn't really an object type, but really one of 3 types:
+- Rect
+- Elipse
+- ImgRect
+
+They all have:
+- width
+- height (can be None)
+- coordinate_placing: (the type is an enum. We have 2 types for now: CENTER and TOP_LEFT. And the default is CENTER.)
+
+But Rect and Elipse also have .color. 
+And with them, if height is None, it is the same as width.
+
+And ImgRect also has .image.
+And the constructor for ImgRect takes a path to the img, loads it up, and scales it to width and height.
+Here, if height is None, it becomes a number that retains dimensions of the loaded img.
+
+
+#### Final design:
+
+And you just have:
+- renderer.py 
+which will have the described renderer fn and the main fn that is the game loop that is trigered.
+The main fn take takes an object that has fns: .step() and .get_object_tree().
+And it just does: step, get object tree, cleqar, and then calls the rendering fn.
+And make an interface there for objects that have these fns.
+
+- Then make a simple_test.py where you import main and the interface, 
+and you define a simple object that satisfies that interface, 
+and then you just run main where you give it that object, and we can see the visuals happening.
+
