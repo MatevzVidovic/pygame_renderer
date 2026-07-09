@@ -75,3 +75,45 @@ And make an interface there for objects that have these fns.
 and you define a simple object that satisfies that interface, 
 and then you just run main where you give it that object, and we can see the visuals happening.
 
+## Interpolation
+
+The normal renderer draws the current object tree directly:
+
+```python
+render_object_tree(surface, object_tree)
+```
+
+For smoother movement between discrete simulation steps, use:
+
+```python
+interpolating_render_object_tree(
+    surface,
+    object_tree,
+    interpolating_factor=4,
+)
+```
+
+or opt into it through the game loop:
+
+```python
+main(visual, interpolating_factor=4)
+```
+
+Interpolation works by matching splats between the previous tree and the new tree by id:
+
+```python
+Splat(asset, pos, id="player")
+```
+
+The renderer interpolates only the position. Asset, color, size, image, and render order come from the new object tree. Splats without an id, or splats whose id was not present in the previous tree, are rendered directly at the new position.
+
+You can pass a custom interpolation function:
+
+```python
+def ease_in_out(t: float) -> float:
+    return t * t * (3 - 2 * t)
+
+Splat(asset, pos, id="player", interpolating_fn=ease_in_out)
+```
+
+The interpolation function receives `t` from `0` to `1` and must return a value between `0` and `1`. If no function is provided, linear interpolation is used.

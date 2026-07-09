@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
@@ -10,6 +10,8 @@ import pygame
 
 ColorTuple: TypeAlias = tuple[int, int, int] | tuple[int, int, int, int]
 Position: TypeAlias = Iterable[float]
+SplatId: TypeAlias = str | int | tuple[object, ...] | None
+InterpolatingFn: TypeAlias = Callable[[float], float]
 
 
 class RGB:
@@ -139,9 +141,12 @@ Asset: TypeAlias = Rect | Elipse | ImgRect
 class Splat:
     asset: Asset
     pos: Position
+    id: SplatId = None
+    interpolating_fn: InterpolatingFn | None = None
 
 
 ObjectTree: TypeAlias = Splat | Sequence["ObjectTree"]
+_previous_interpolation_splats: dict[SplatId, Splat] = {}
 
 
 @runtime_checkable
@@ -162,6 +167,36 @@ def render_object_tree(
     _render_node(surface, object_tree)
 
 
+def interpolating_render_object_tree(
+    surface: pygame.Surface,
+    object_tree: ObjectTree,
+    background_color: Color = (20, 20, 24),
+    interpolating_factor: int = 1,
+    after_render: Callable[[], None] | None = None,
+) -> None:
+    if interpolating_factor < 1:
+        raise ValueError("interpolating_factor must be greater than or equal to 1")
+
+    new_splats = _flatten_splats(object_tree)
+
+    for step in range(1, interpolating_factor + 1):
+        t = step / interpolating_factor
+        surface.fill(_color_tuple(background_color))
+
+        for splat in new_splats:
+            _render_splat(surface, _interpolated_splat(splat, t))
+
+        if after_render is not None:
+            after_render()
+
+    global _previous_interpolation_splats
+    _previous_interpolation_splats = {
+        splat.id: _snapshot_splat(splat)
+        for splat in new_splats
+        if splat.id is not None
+    }
+
+
 def _render_node(surface: pygame.Surface, node: ObjectTree) -> None:
     if isinstance(node, Splat):
         _render_splat(surface, node)
@@ -172,7 +207,7 @@ def _render_node(surface: pygame.Surface, node: ObjectTree) -> None:
 
 
 def _render_splat(surface: pygame.Surface, splat: Splat) -> None:
-    y, x = splat.pos
+    y, x = _position_tuple(splat.pos)
     asset = splat.asset
     draw_x, draw_y = _top_left(asset, x, y)
     rect = pygame.Rect(draw_x, draw_y, asset.width, asset.height)
@@ -183,6 +218,54 @@ def _render_splat(surface: pygame.Surface, splat: Splat) -> None:
         pygame.draw.ellipse(surface, _color_tuple(asset.color), rect)
     else:
         surface.blit(asset.image, rect)
+
+
+def _flatten_splats(object_tree: ObjectTree) -> list[Splat]:
+    if isinstance(object_tree, Splat):
+        return [object_tree]
+
+    splats: list[Splat] = []
+    for child in object_tree:
+        splats.extend(_flatten_splats(child))
+    return splats
+
+
+def _interpolated_splat(splat: Splat, t: float) -> Splat:
+    if splat.id is None or splat.id not in _previous_interpolation_splats:
+        return splat
+
+    old_splat = _previous_interpolation_splats[splat.id]
+    old_y, old_x = _position_tuple(old_splat.pos)
+    new_y, new_x = _position_tuple(splat.pos)
+    interpolating_fn = splat.interpolating_fn
+    change = interpolating_fn(t) if interpolating_fn is not None else t
+
+    if change < 0 or change > 1:
+        raise ValueError("interpolating_fn must return a value between 0 and 1")
+
+    return Splat(
+        splat.asset,
+        (
+            old_y + (new_y - old_y) * change,
+            old_x + (new_x - old_x) * change,
+        ),
+        splat.id,
+        splat.interpolating_fn,
+    )
+
+
+def _snapshot_splat(splat: Splat) -> Splat:
+    return Splat(
+        splat.asset,
+        _position_tuple(splat.pos),
+        splat.id,
+        splat.interpolating_fn,
+    )
+
+
+def _position_tuple(pos: Position) -> tuple[float, float]:
+    y, x = pos
+    return y, x
 
 
 def _top_left(asset: Asset, x: float, y: float) -> tuple[float, float]:
@@ -210,7 +293,11 @@ def main(
     fps: int = 60,
     title: str = "pygame renderer",
     background_color: Color = (20, 20, 24),
+    interpolating_factor: int = 1,
 ) -> None:
+    if interpolating_factor < 1:
+        raise ValueError("interpolating_factor must be greater than or equal to 1")
+
     pygame.init()
     screen = pygame.display.set_mode(size)
     pygame.display.set_caption(title)
@@ -223,9 +310,28 @@ def main(
                 running = False
 
         program.step()
-        render_object_tree(screen, program.get_object_tree(), background_color)
+        object_tree = program.get_object_tree()
 
-        pygame.display.flip()
-        clock.tick(fps)
+        if interpolating_factor == 1:
+            render_object_tree(screen, object_tree, background_color)
+            pygame.display.flip()
+            clock.tick(fps)
+        else:
+            interpolating_render_object_tree(
+                screen,
+                object_tree,
+                background_color,
+                interpolating_factor,
+                lambda: _finish_interpolation_frame(clock, fps, interpolating_factor),
+            )
 
     pygame.quit()
+
+
+def _finish_interpolation_frame(
+    clock: pygame.time.Clock,
+    fps: int,
+    interpolating_factor: int,
+) -> None:
+    pygame.display.flip()
+    clock.tick(fps * interpolating_factor)
