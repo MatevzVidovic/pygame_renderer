@@ -42,8 +42,8 @@ class FarmingRobot(VisualProgram):
 
 
 def run() -> None:
-    visual: VisualProgram = NBodyProblem()
-    main(visual, size=SCREEN_SIZE, title="N-Body Problem")
+    visual: VisualProgram = FarmingRobot()
+    main(visual, size=SCREEN_SIZE, title="Farming Robot")
 
 
 if __name__ == "__main__":
