@@ -37,6 +37,33 @@ def ease_in_out(t: float) -> float:
 Splat(asset, pos, id="ball", interpolating_fn=ease_in_out)
 ```
 
+## Why Non-Linear Interpolation Exists
+
+Non-linear interpolation is useful for discrete-space renders and games. The
+simulation state may jump from one grid cell, tile, board position, or logical
+state to another, but the visual layer does not have to look like a boring
+straight slide.
+
+The interpolation function lets that state jump become a small animation: sticky,
+snappy, slow-in, slow-out, or otherwise stylized. The object still begins exactly
+at the old state and ends exactly at the new state, but the motion between them
+can communicate that this is a transition between discrete states rather than
+continuous physics.
+
+```mermaid
+flowchart LR
+    A[old discrete state] --> B[visual transition]
+    B --> C[new discrete state]
+    B --> D[sticky / snappy / eased motion]
+```
+
+```mermaid
+flowchart TD
+    A[game logic jumps one tile] --> B[position changes instantly in state]
+    B --> C[interpolation adds in-between frames]
+    C --> D[player sees an animated move]
+```
+
 ```mermaid
 flowchart TD
     A[Splat] --> B[asset]

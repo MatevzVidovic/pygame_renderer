@@ -113,6 +113,9 @@ def _changes_for_fn(
         if interpolating_fn is None:
             changes = t_values
         else:
+            # Non-linear interpolation is mainly for discrete-space visuals:
+            # a character moves from one cell/state to another, but we render
+            # the transition as a sticky animation instead of plain linear motion.
             changes = _apply_interpolating_fn(interpolating_fn, t_values)
 
         if np.any(changes < 0) or np.any(changes > 1):
