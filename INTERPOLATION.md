@@ -45,10 +45,10 @@ state to another, but the visual layer does not have to look like a boring
 straight slide.
 
 The interpolation function lets that state jump become a small animation: sticky,
-snappy, slow-in, slow-out, or otherwise stylized. The object still begins exactly
-at the old state and ends exactly at the new state, but the motion between them
-can communicate that this is a transition between discrete states rather than
-continuous physics.
+snappy, slow-in, slow-out, overshooting, or otherwise stylized. The object still
+begins exactly at the old state and ends exactly at the new state, but the motion
+between them can communicate that this is a transition between discrete states
+rather than continuous physics.
 
 ```mermaid
 flowchart LR
@@ -110,15 +110,19 @@ flowchart TD
     H --> I
 ```
 
-The interpolation function must return values in `[0, 1]`.
+The interpolation function must start at `0` and end at `1`. Intermediate values
+may go below `0` or above `1`, which is useful for overshoot and shake effects.
 
 ```mermaid
 flowchart LR
     A[t values] --> B[change values]
-    B --> C{all 0..1?}
+    B --> C{ends at 1?}
     C -->|yes| D[render frames]
     C -->|no| E[ValueError]
 ```
+
+See `src/2_interpolation_test` for a simple 8x8 discrete grid where a block jumps
+between random cells and uses a sticky overshooting transition.
 
 ## No-Motion Fast Path
 

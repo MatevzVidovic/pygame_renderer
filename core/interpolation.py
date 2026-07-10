@@ -116,10 +116,11 @@ def _changes_for_fn(
             # Non-linear interpolation is mainly for discrete-space visuals:
             # a character moves from one cell/state to another, but we render
             # the transition as a sticky animation instead of plain linear motion.
+            _validate_interpolating_fn_endpoints(interpolating_fn)
             changes = _apply_interpolating_fn(interpolating_fn, t_values)
 
-        if np.any(changes < 0) or np.any(changes > 1):
-            raise ValueError("interpolating_fn must return values between 0 and 1")
+        if not np.isclose(changes[-1], 1):
+            raise ValueError("interpolating_fn must end at 1")
 
         change_cache[cache_key] = changes
 
@@ -139,6 +140,12 @@ def _apply_interpolating_fn(
         pass
 
     return np.asarray([interpolating_fn(float(t)) for t in t_values], dtype=float)
+
+
+def _validate_interpolating_fn_endpoints(interpolating_fn: InterpolatingFn) -> None:
+    start, end = _apply_interpolating_fn(interpolating_fn, np.asarray([0.0, 1.0]))
+    if not np.isclose(start, 0) or not np.isclose(end, 1):
+        raise ValueError("interpolating_fn must start at 0 and end at 1")
 
 
 def _store_previous_splats(new_splats: list[Splat]) -> None:
