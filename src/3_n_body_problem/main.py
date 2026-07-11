@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import numpy as np
 
-from core.renderer import Elipse, ObjectTree, Rect, Splat, VisualProgram, main
+from core.renderer import Elipse, ObjectTree, Rect, Splat, VisualProgram, HSV, main
 
 
 # NUM_OF_BALLS = 5
 BALL_RADIUS_FACTOR = 0.03
-# VISUAL_SCALING_AID = lambda m: 1 / np.log(m + 1) # doesnt work - makes large objects smaller than small objects
-VISUAL_SCALING_AID = lambda m: 1 - np.e ** (-m)
+# VISUAL_SCALING_AID = lambda m: - np.log(m) # doesnt work - makes large objects smaller than small objects
+# VISUAL_SCALING_AID = lambda m: 1 / np.e ** (-m)
+# VISUAL_SCALING_AID = lambda m: 1 / (1 - np.e ** (-(m)))
+VISUAL_SCALING_AID = lambda m: np.cbrt(m)
 # VISUAL_SCALING_AID = lambda m: 1
-FPS = 12
+FPS = 120
 
 SCREEN_SIZE = 800
-G = 0.001
+G = 0.0000001
 
 
 class NBodyProblem(VisualProgram):
@@ -22,17 +24,21 @@ class NBodyProblem(VisualProgram):
             [
                 10000,
                 1,
+                1,
             ]
         )
+        self.masses_col_vec = self.masses.reshape(-1, 1)
         self.positions = np.array(
             [
                 [0.5, 0.5],
                 [0.7, 0.5],
+                [0.7, 0.7],
             ]
         )
         self.velocities = np.array(
             [
                 [0.0003, 0.0002],
+                [0.02, 0.01],
                 [0.02, 0.01],
             ]
         )
@@ -47,10 +53,14 @@ class NBodyProblem(VisualProgram):
         # So we add an fn as a parameter that will help with visual scaling.
         # (To make that fn easier to construct, we suggest you follow the rule:
         # the smallest object we have has mass 1).
-        self.unit_coordinate_radiuses = [BALL_RADIUS_FACTOR * np.cbrt(m) * VISUAL_SCALING_AID(m) for m in self.masses]
-        self.balls = [Elipse(SCREEN_SIZE * 2 * r, (79, 209, 197)) for r in self.unit_coordinate_radiuses]
+        self.unit_coordinate_radiuses = [BALL_RADIUS_FACTOR * np.cbrt(VISUAL_SCALING_AID(m)) for m in self.masses]
+        # HSV(174, 0.62, 0.83)
+        self.balls = [
+            Elipse(SCREEN_SIZE * 2 * r, HSV(np.random.randint(359), 0.62, 0.83)) for r in self.unit_coordinate_radiuses
+        ]
 
     def step(self) -> None:
+        time_step = 1 / FPS
 
         forces = np.zeros_like(self.velocities)
         # print("start")
@@ -58,7 +68,7 @@ class NBodyProblem(VisualProgram):
             directions = self.positions - self.positions[ix]
             distances = np.linalg.norm(directions, axis=1).reshape(-1, 1)
             unit_directions = directions / distances
-            forces_on_object = (G * self.masses * self.masses[ix] / (distances**2)) * unit_directions
+            forces_on_object = (G * self.masses_col_vec * self.masses[ix] / (distances**2)) * unit_directions
             # print(f"{forces_on_object=}")
             # forces_on_object = np.delete(forces_on_object, ix, axis=0)  # to remove the nan self-force
             forces[ix] = np.nansum(forces_on_object, axis=0)  # skips nan vals, including the bogus self-force
@@ -67,17 +77,23 @@ class NBodyProblem(VisualProgram):
             # print(f"{unit_directions=}")
             # print(f"{forces_on_object=}")
         # print(forces)
-        accelerations = forces / self.masses
-        self.velocities += accelerations
+        accelerations = forces / self.masses_col_vec
+        self.velocities += accelerations * time_step
 
-        time_step = 1 / FPS
         self.positions += self.velocities * time_step
-
         for point, velocity, radius in zip(self.positions, self.velocities, self.unit_coordinate_radiuses):
-            if point[0] - radius < 0 or point[0] + radius > 1:
+            if point[0] - radius < 0:
                 velocity[0] *= -1
-            if point[1] - radius < 0 or point[1] + radius > 1:
+                point[0] = radius
+            if point[0] + radius > 1:
+                velocity[0] *= -1
+                point[0] = 1 - radius
+            if point[1] - radius < 0:
                 velocity[1] *= -1
+                point[1] = radius
+            if point[1] + radius > 1:
+                velocity[1] *= -1
+                point[1] = 1 - radius
 
     def get_object_tree(self) -> ObjectTree:
         screen_positions = self.positions * SCREEN_SIZE
