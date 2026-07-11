@@ -12,14 +12,10 @@ SCREEN_SIZE = 800
 
 
 @dataclass
-class Experiment:
-    G: float = 0.0000001
+class BasicExperiment:
+    G: float = 0.00001
     BALL_RADIUS_FACTOR: float = 0.03
-    # VISUAL_SCALING_AID = lambda m: -np.log(m)  # makes large objects smaller than small objects
-    # VISUAL_SCALING_AID = lambda m: 1 / np.e ** (-m)
-    # VISUAL_SCALING_AID = lambda m: 1 / (1 - np.e ** (-(m)))
-    VISUAL_SCALING_AID: Callable[[float], float] = lambda m: np.cbrt(m)
-    # VISUAL_SCALING_AID = lambda m: 1
+    VISUAL_SCALING_AID: Callable[[float], float] = field(default_factory=lambda: lambda m: np.cbrt(m))
     FPS: int = 120
     masses: np.ndarray = field(
         default_factory=lambda: np.array(
@@ -50,7 +46,27 @@ class Experiment:
     )
 
 
-EXPERIMENT = Experiment()
+class NBodiesScattered:
+    # NUM_OF_BALLS = 1000
+    # G: float = 0.000005
+    # BALL_RADIUS_FACTOR: float = 0.003
+
+    NUM_OF_BALLS = 50
+    G: float = 0.000005
+    BALL_RADIUS_FACTOR: float = 0.03
+    FPS: int = 120
+
+    def __init__(self):
+        self.VISUAL_SCALING_AID = lambda m: np.cbrt(m)
+        self.masses = np.ones(shape=self.NUM_OF_BALLS)
+        self.positions = np.random.random(size=(self.NUM_OF_BALLS, 2))
+        # self.velocities = np.zeros_like(self.positions)
+        self.velocities = np.random.random(size=(self.NUM_OF_BALLS, 2))
+        self.velocities = 0.05 * self.velocities / np.linalg.norm(self.velocities, axis=1).reshape(-1, 1)
+
+
+# EXPERIMENT = BasicExperiment()
+EXPERIMENT = NBodiesScattered()
 
 
 class NBodyProblem(VisualProgram):
@@ -72,13 +88,11 @@ class NBodyProblem(VisualProgram):
         # (To make that fn easier to construct, we suggest you follow the rule:
         # the smallest object we have has mass 1).
         self.unit_coordinate_radiuses = [
-            EXPERIMENT.BALL_RADIUS_FACTOR * np.cbrt(EXPERIMENT.VISUAL_SCALING_AID(m))
-            for m in self.masses
+            EXPERIMENT.BALL_RADIUS_FACTOR * np.cbrt(EXPERIMENT.VISUAL_SCALING_AID(m)) for m in self.masses
         ]
         # HSV(174, 0.62, 0.83)
         self.balls = [
-            Elipse(SCREEN_SIZE * 2 * r, HSV(np.random.randint(359), 0.62, 0.83))
-            for r in self.unit_coordinate_radiuses
+            Elipse(SCREEN_SIZE * 2 * r, HSV(np.random.randint(359), 0.62, 0.83)) for r in self.unit_coordinate_radiuses
         ]
 
     def step(self) -> None:
@@ -90,12 +104,7 @@ class NBodyProblem(VisualProgram):
             directions = self.positions - self.positions[ix]
             distances = np.linalg.norm(directions, axis=1).reshape(-1, 1)
             unit_directions = directions / distances
-            forces_on_object = (
-                EXPERIMENT.G
-                * self.masses_col_vec
-                * self.masses[ix]
-                / (distances**2)
-            ) * unit_directions
+            forces_on_object = (EXPERIMENT.G * self.masses_col_vec * self.masses[ix] / (distances**2)) * unit_directions
             # print(f"{forces_on_object=}")
             # forces_on_object = np.delete(forces_on_object, ix, axis=0)  # to remove the nan self-force
             forces[ix] = np.nansum(forces_on_object, axis=0)  # skips nan vals, including the bogus self-force
@@ -128,12 +137,7 @@ class NBodyProblem(VisualProgram):
 
     def get_object_tree(self) -> ObjectTree:
         screen_positions = self.positions * SCREEN_SIZE
-        return [
-            [
-                Splat(self.balls[i], screen_positions[i])
-                for i in range(np.size(screen_positions, 0))
-            ]
-        ]
+        return [[Splat(self.balls[i], screen_positions[i]) for i in range(np.size(screen_positions, 0))]]
 
 
 def run() -> None:
