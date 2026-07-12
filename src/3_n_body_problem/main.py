@@ -142,11 +142,24 @@ class NBodyProblem(VisualProgram):
 
 def run() -> None:
     visual: VisualProgram = NBodyProblem()
+    # main(
+    #     visual,
+    #     size=(SCREEN_SIZE, SCREEN_SIZE),
+    #     fps=EXPERIMENT.FPS,
+    #     title="N-Body Problem",
+    # )
     main(
         visual,
         size=(SCREEN_SIZE, SCREEN_SIZE),
         fps=EXPERIMENT.FPS,
         title="N-Body Problem",
+        video_render=True,
+        video_params={
+            "output_path": "n_body_problem.mp4",
+            "num_frames": 600,
+            "quality": 18,
+            "preset": "medium",
+        },
     )
 
 

@@ -45,11 +45,11 @@ class _VideoFrameWriter:
         fps: int,
         video_params: dict[str, object],
     ) -> None:
-        ffmpeg_name = str(video_params.get("ffmpeg_path", "ffmpeg"))
-        ffmpeg_path = shutil.which(ffmpeg_name)
+        ffmpeg_path = _find_ffmpeg(video_params)
         if ffmpeg_path is None:
             raise RuntimeError(
-                "ffmpeg was not found; install it or pass video_params['ffmpeg_path']"
+                "ffmpeg was not found; install imageio-ffmpeg, install ffmpeg, "
+                "or pass video_params['ffmpeg_path']"
             )
 
         self.output_path = str(video_params.get("output_path", "render.mp4"))
@@ -107,3 +107,20 @@ class _VideoFrameWriter:
         self.process.wait()
         if self.process.returncode != 0:
             raise RuntimeError(stderr.decode("utf-8", errors="replace"))
+
+
+def _find_ffmpeg(video_params: dict[str, object]) -> str | None:
+    ffmpeg_path_param = video_params.get("ffmpeg_path")
+    if ffmpeg_path_param is not None:
+        return str(ffmpeg_path_param)
+
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path is not None:
+        return ffmpeg_path
+
+    try:
+        import imageio_ffmpeg
+    except ImportError:
+        return None
+
+    return imageio_ffmpeg.get_ffmpeg_exe()
