@@ -8,6 +8,8 @@ from typing import Protocol, TypeAlias, runtime_checkable
 
 import pygame
 
+from core.video_render import setup_video_rendering
+
 ColorTuple: TypeAlias = tuple[int, int, int] | tuple[int, int, int, int]
 Position: TypeAlias = Iterable[float]
 SplatId: TypeAlias = str | int | tuple[object, ...] | None
@@ -220,51 +222,90 @@ def main(
     title: str = "pygame renderer",
     background_color: Color = (20, 20, 24),
     interpolating_factor: int = 1,
+    video_render: bool = False,
+    video_params: dict[str, object] | None = None,
 ) -> None:
     if interpolating_factor < 1:
         raise ValueError("interpolating_factor must be greater than or equal to 1")
 
+    video_params = {} if video_params is None else video_params
+    finish_frame: Callable[[pygame.Surface, int, int], None]
+    close_frame_output: Callable[[], None] = lambda: None
+    max_steps: int | None = None
+
+    if video_render:
+        finish_frame, close_frame_output, max_steps = setup_video_rendering(
+            size=size,
+            fps=fps,
+            interpolating_factor=interpolating_factor,
+            video_params=video_params,
+        )
+
     pygame.init()
-    screen = pygame.display.set_mode(size)
-    pygame.display.set_caption(title)
-    clock = pygame.time.Clock()
+    if video_render:
+        screen = None
+        clock = None
+    else:
+        screen = pygame.display.set_mode(size)
+        pygame.display.set_caption(title)
+        clock = pygame.time.Clock()
+        finish_frame = lambda frame_surface, frame_fps, video_repeats=1: _present_frame(
+            screen,
+            frame_surface,
+            clock,
+            frame_fps,
+        )
+
+    frame_surface = pygame.Surface(size)
+    if screen is not None:
+        frame_surface = frame_surface.convert()
 
     running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+    step_count = 0
+    try:
+        while running:
+            if max_steps is not None and step_count >= max_steps:
+                break
 
-        program.step()
-        object_tree = program.get_object_tree()
+            if not video_render:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
 
-        if interpolating_factor == 1:
-            render_object_tree(screen, object_tree, background_color)
-            pygame.display.flip()
-            clock.tick(fps)
-        else:
-            interpolating_render_object_tree(
-                screen,
-                object_tree,
-                background_color,
-                interpolating_factor,
-                lambda frame_count: _finish_interpolation_frame(
-                    clock,
-                    fps,
-                    frame_count,
-                ),
-            )
+            program.step()
+            object_tree = program.get_object_tree()
 
-    pygame.quit()
+            if interpolating_factor == 1:
+                render_object_tree(frame_surface, object_tree, background_color)
+                finish_frame(frame_surface, fps, 1)
+            else:
+                interpolating_render_object_tree(
+                    frame_surface,
+                    object_tree,
+                    background_color,
+                    interpolating_factor,
+                    lambda frame_count: finish_frame(
+                        frame_surface,
+                        fps * frame_count,
+                        max(1, interpolating_factor // frame_count),
+                    ),
+                )
+
+            step_count += 1
+    finally:
+        close_frame_output()
+        pygame.quit()
 
 
-def _finish_interpolation_frame(
+def _present_frame(
+    screen: pygame.Surface,
+    frame_surface: pygame.Surface,
     clock: pygame.time.Clock,
-    fps: int,
-    frame_count: int,
+    frame_fps: int,
 ) -> None:
+    screen.blit(frame_surface, (0, 0))
     pygame.display.flip()
-    clock.tick(fps * frame_count)
+    clock.tick(frame_fps)
 
 
 from core.interpolation import interpolating_render_object_tree

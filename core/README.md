@@ -80,3 +80,26 @@ and then you just run main where you give it that object, and we can see the vis
 The interpolation renderer is implemented separately in `core/interpolation.py` and
 re-exported through `core/renderer.py`. See `INTERPOLATION.md` for the full design,
 usage, and diagrams.
+
+## Presentation and Video
+
+`main(...)` renders each frame into an offscreen pygame `Surface`. In normal mode,
+that finished frame is blitted to the display and flipped. In video mode, the same
+finished frame is written to an `ffmpeg` raw RGB pipe instead:
+
+```python
+main(
+    visual,
+    video_render=True,
+    video_params={
+        "output_path": "render.mp4",
+        "num_frames": 300,
+        "quality": 18,
+        "preset": "medium",
+    },
+)
+```
+
+`quality` maps to ffmpeg `crf`, where lower numbers mean higher quality.
+`num_frames` is the number of simulation steps to run; interpolation can produce
+multiple video frames for each step.
