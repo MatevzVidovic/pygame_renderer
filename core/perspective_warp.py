@@ -10,6 +10,8 @@ class PerspectiveWarp:
         size: tuple[int, int],
         top_drop: float = 0.0,
         top_pull: float = 0.0,
+        bottom_lift: float = 0.0,
+        bottom_pull: float = 0.0,
         background: tuple[int, int, int] = (0, 0, 0),
     ) -> None:
         """
@@ -34,12 +36,34 @@ class PerspectiveWarp:
             - 0.5 means the two top corners meet in the center.
             - values above 0.5 are allowed; the top edge crosses over itself.
 
+        bottom_lift:
+            How much higher the old bottom edge appears in the output image,
+            as a fraction of screen height.
+
+            - 0.0 means the old bottom edge stays at the bottom.
+            - 0.2 means the old bottom edge moves 20% up from the bottom.
+
+        bottom_pull:
+            How much the old bottom-left and bottom-right corners move toward
+            the center, as a fraction of screen width.
+
+            - 0.0 means the bottom corners stay where they are.
+            - 0.25 means each bottom corner moves 25% of the width inward.
+            - 0.5 means the two bottom corners meet in the center.
+            - values above 0.5 are allowed; the bottom edge crosses over itself.
+
         No-op:
-            PerspectiveWarp(size, top_drop=0.0, top_pull=0.0)
+            PerspectiveWarp(
+                size,
+                top_drop=0.0,
+                top_pull=0.0,
+                bottom_lift=0.0,
+                bottom_pull=0.0,
+            )
             is an exact identity transform.
 
         background:
-            Fill color for pixels above the dropped top edge and for pixels
+            Fill color for pixels above/below the moved edges and for pixels
             outside the warped quadrilateral.
 
         Image quality note:
@@ -52,19 +76,26 @@ class PerspectiveWarp:
         """
         if top_drop < 0.0 or top_drop >= 1.0:
             raise ValueError("top_drop must be in [0.0, 1.0)")
+        if bottom_lift < 0.0 or bottom_lift >= 1.0:
+            raise ValueError("bottom_lift must be in [0.0, 1.0)")
+        if top_drop + bottom_lift >= 1.0:
+            raise ValueError("top_drop + bottom_lift must be less than 1.0")
 
         self.size = w, h = size
         self.background = background
 
         xd, yd = np.mgrid[0:w, 0:h]
         top_y = (h - 1) * top_drop
+        bottom_y = (h - 1) * (1.0 - bottom_lift)
         top_left_x = (w - 1) * top_pull
         top_right_x = (w - 1) * (1.0 - top_pull)
+        bottom_left_x = (w - 1) * bottom_pull
+        bottom_right_x = (w - 1) * (1.0 - bottom_pull)
 
-        vertical_span = (h - 1) - top_y
+        vertical_span = bottom_y - top_y
         v = (yd - top_y) / vertical_span
-        left_x = top_left_x * (1.0 - v)
-        right_x = top_right_x * (1.0 - v) + (w - 1) * v
+        left_x = top_left_x * (1.0 - v) + bottom_left_x * v
+        right_x = top_right_x * (1.0 - v) + bottom_right_x * v
         row_width = right_x - left_x
 
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -75,6 +106,7 @@ class PerspectiveWarp:
 
         self._invalid = ~(
             (yd >= top_y)
+            & (yd <= bottom_y)
             & (np.abs(row_width) > 1e-9)
             & (u >= 0.0)
             & (u <= 1.0)

@@ -120,6 +120,8 @@ def run() -> None:
             # top_pull=0.8,
             top_drop=0.0,
             top_pull=0.2,
+            bottom_lift=0.0,
+            bottom_pull=0.0,
             background=(21, 24, 31),
         ),
     )

@@ -116,6 +116,8 @@ main(
         (800, 600),
         top_drop=0.18,
         top_pull=0.22,
+        bottom_lift=0.0,
+        bottom_pull=0.0,
         background=(20, 20, 30),
     ),
 )
@@ -124,4 +126,5 @@ main(
 The world still renders normally into a 2D frame first. The warp is applied only
 at the final output step.
 
-Use `top_drop=0.0` and `top_pull=0.0` for an exact no-op.
+Use `top_drop=0.0`, `top_pull=0.0`, `bottom_lift=0.0`, and `bottom_pull=0.0`
+for an exact no-op.
