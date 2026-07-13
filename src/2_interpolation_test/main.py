@@ -5,6 +5,7 @@ import numpy as np
 from core.renderer import (
     CoordinatePlacing,
     ObjectTree,
+    PerspectiveWarp,
     RGB,
     Rect,
     Splat,
@@ -113,6 +114,12 @@ def run() -> None:
         title="Interpolation Test",
         background_color=RGB(21, 24, 31),
         interpolating_factor=28,
+        perspective_params=PerspectiveWarp(
+            SCREEN_SIZE,
+            horizon=0.0,
+            depth=1.00001,
+            background=(21, 24, 31),
+        ),
     )
 
 

@@ -8,6 +8,7 @@ from typing import Protocol, TypeAlias, runtime_checkable
 
 import pygame
 
+from core.perspective_warp import PerspectiveWarp
 from core.video_render import setup_video_rendering
 
 ColorTuple: TypeAlias = tuple[int, int, int] | tuple[int, int, int, int]
@@ -224,6 +225,7 @@ def main(
     interpolating_factor: int = 1,
     video_render: bool = False,
     video_params: dict[str, object] | None = None,
+    perspective_params: PerspectiveWarp | None = None,
 ) -> None:
     if interpolating_factor < 1:
         raise ValueError("interpolating_factor must be greater than or equal to 1")
@@ -256,9 +258,20 @@ def main(
             frame_fps,
         )
 
-    frame_surface = pygame.Surface(size)
+    frame_surface = pygame.Surface(size, depth=32)
     if screen is not None:
         frame_surface = frame_surface.convert()
+
+    def finish_processed_frame(
+        frame_fps: int,
+        video_repeats: int = 1,
+    ) -> None:
+        output_surface = (
+            perspective_params.apply(frame_surface)
+            if perspective_params is not None
+            else frame_surface
+        )
+        finish_frame(output_surface, frame_fps, video_repeats)
 
     running = True
     step_count = 0
@@ -277,15 +290,14 @@ def main(
 
             if interpolating_factor == 1:
                 render_object_tree(frame_surface, object_tree, background_color)
-                finish_frame(frame_surface, fps, 1)
+                finish_processed_frame(fps, 1)
             else:
                 interpolating_render_object_tree(
                     frame_surface,
                     object_tree,
                     background_color,
                     interpolating_factor,
-                    lambda frame_count: finish_frame(
-                        frame_surface,
+                    lambda frame_count: finish_processed_frame(
                         fps * frame_count,
                         max(1, interpolating_factor // frame_count),
                     ),
