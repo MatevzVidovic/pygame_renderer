@@ -116,8 +116,8 @@ def run() -> None:
         interpolating_factor=28,
         perspective_params=PerspectiveWarp(
             SCREEN_SIZE,
-            horizon=0.0,
-            depth=1.00001,
+            top_drop=0.18,
+            top_pull=0.22,
             background=(21, 24, 31),
         ),
     )

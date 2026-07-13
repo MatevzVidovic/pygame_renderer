@@ -8,8 +8,8 @@ class PerspectiveWarp:
     def __init__(
         self,
         size: tuple[int, int],
-        horizon: float = 0.30,
-        depth: float = 3.0,
+        top_drop: float = 0.0,
+        top_pull: float = 0.0,
         background: tuple[int, int, int] = (0, 0, 0),
     ) -> None:
         """
@@ -17,26 +17,30 @@ class PerspectiveWarp:
             The exact pixel size of the already-rendered source frame,
             as (width, height). This must match the surface passed to apply().
 
-        horizon:
-            Where the vanishing horizon sits as a fraction of screen height.
-            0.0 is the top edge, 1.0 is the bottom edge.
-            Smaller values show more warped ground. Larger values leave more
-            flat background above the horizon and compress the world into less
-            vertical space.
+        top_drop:
+            How much lower the old top edge appears in the output image,
+            as a fraction of screen height.
 
-            Good starting values: 0.25 to 0.40.
+            - 0.0 means the old top edge stays at the top: no vertical warp.
+            - 0.2 means the old top edge moves 20% down from the top.
+            - 0.5 means the old top edge appears halfway down the screen.
 
-        depth:
-            Strength of perspective. This is the far/near depth ratio.
-            Must be greater than 1.0.
+        top_pull:
+            How much the old top-left and top-right corners move toward the
+            center, as a fraction of screen width.
 
-            - 1.1 is very mild, almost flat.
-            - 2.0 to 4.0 gives a readable Mode-7 style effect.
-            - 5.0+ is strong and will heavily squeeze distant pixels.
+            - 0.0 means the top corners stay where they are: no horizontal warp.
+            - 0.25 means each top corner moves 25% of the width inward.
+            - 0.5 means the two top corners meet in the center.
+            - values above 0.5 are allowed; the top edge crosses over itself.
+
+        No-op:
+            PerspectiveWarp(size, top_drop=0.0, top_pull=0.0)
+            is an exact identity transform.
 
         background:
-            Fill color for the sky/empty area above the horizon and for pixels
-            that project outside the source frame.
+            Fill color for pixels above the dropped top edge and for pixels
+            outside the warped quadrilateral.
 
         Image quality note:
             This warp is intentionally fast. It precomputes integer source pixel
@@ -46,23 +50,35 @@ class PerspectiveWarp:
             render the source at a higher resolution and downscale afterward, or
             add a future bilinear sampling mode.
         """
-        if depth <= 1.0:
-            raise ValueError("depth must be greater than 1.0")
+        if top_drop < 0.0 or top_drop >= 1.0:
+            raise ValueError("top_drop must be in [0.0, 1.0)")
 
         self.size = w, h = size
         self.background = background
-        self.horizon_y = hy = int(h * horizon)
-        cx = w / 2.0
 
-        xd, yd = np.mgrid[0:w, hy:h]
-        p = (yd - hy + 1) / float(h - hy)
+        xd, yd = np.mgrid[0:w, 0:h]
+        top_y = (h - 1) * top_drop
+        top_left_x = (w - 1) * top_pull
+        top_right_x = (w - 1) * (1.0 - top_pull)
 
-        k = 1.0 / depth
-        v = (1.0 / k - 1.0 / p) / (1.0 / k - 1.0)
-        xs = cx + (xd - cx) / p
+        vertical_span = (h - 1) - top_y
+        v = (yd - top_y) / vertical_span
+        left_x = top_left_x * (1.0 - v)
+        right_x = top_right_x * (1.0 - v) + (w - 1) * v
+        row_width = right_x - left_x
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            u = (xd - left_x) / row_width
+
+        xs = u * (w - 1)
         ys = v * (h - 1)
 
-        self._invalid = ~((v >= 0.0) & (xs >= 0.0) & (xs <= w - 1))
+        self._invalid = ~(
+            (yd >= top_y)
+            & (np.abs(row_width) > 1e-9)
+            & (u >= 0.0)
+            & (u <= 1.0)
+        )
         # Integer indices make apply() very fast, but this is nearest-neighbor
         # sampling. High-contrast 1px lines will alias after perspective warp.
         xi = np.clip(xs, 0, w - 1).astype(np.intp)
@@ -87,8 +103,8 @@ class PerspectiveWarp:
         np.take(src.ravel(), self._flat_idx, out=self._buf)
         del src
 
-        warped = self._buf.reshape(w, h - self.horizon_y)
+        warped = self._buf.reshape(w, h)
         warped[self._invalid] = self._background_rgb
-        self._out[:, self.horizon_y :] = warped
+        self._out[:, :] = warped
         pygame.surfarray.blit_array(self._surface, self._out)
         return self._surface
