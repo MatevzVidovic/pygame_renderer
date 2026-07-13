@@ -128,3 +128,31 @@ at the final output step.
 
 Use `top_drop=0.0`, `top_pull=0.0`, `bottom_lift=0.0`, and `bottom_pull=0.0`
 for an exact no-op.
+
+### Resolution Downscaling
+
+`size` is the logical render canvas. `res_downscaling` controls the final
+window/video size:
+
+```python
+main(
+    visual,
+    size=(2160, 2160),
+    res_downscaling=3,
+    perspective_params=PerspectiveWarp((2160, 2160), top_pull=0.2),
+)
+```
+
+That renders the object tree into a `2160x2160` surface, applies the perspective
+warp at that same resolution, and then smooth-scales the finished frame down to
+`720x720` right before sending it to the screen or video writer.
+
+This is useful because `PerspectiveWarp` is fast nearest-neighbor sampling.
+Without supersampling, thin grid lines get visibly jagged when the warp squeezes
+or slants them. A `res_downscaling` of `2` or `3` is the simple fix: keep all
+game/render coordinates in a larger `SCREEN_SIZE`, then downscale the final
+image.
+
+Pygame provides `smoothscale`, not true bicubic downscaling. It is still the
+right simple default here because it is built into pygame and works for both
+interactive display and video rendering.

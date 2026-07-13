@@ -13,11 +13,12 @@ from core.renderer import (
     main,
 )
 
-SCREEN_SIZE = (720, 720)
+SCREEN_SIZE = (2160, 2160)
+RES_DOWNSCALING = 3
 GRID_DIM = 8
-GRID_SIZE = 640
-GRID_TOP = 40
-GRID_LEFT = 40
+GRID_SIZE = 1920
+GRID_TOP = 120
+GRID_LEFT = 120
 CELL_SIZE = GRID_SIZE / GRID_DIM
 GRID_LINE_THICKNESS = 2
 BLOCK_ID = "moving-block"
@@ -114,6 +115,7 @@ def run() -> None:
         title="Interpolation Test",
         background_color=RGB(21, 24, 31),
         interpolating_factor=28,
+        res_downscaling=RES_DOWNSCALING,
         perspective_params=PerspectiveWarp(
             SCREEN_SIZE,
             # top_drop=0.3,

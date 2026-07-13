@@ -226,18 +226,25 @@ def main(
     video_render: bool = False,
     video_params: dict[str, object] | None = None,
     perspective_params: PerspectiveWarp | None = None,
+    res_downscaling: float = 1.0,
 ) -> None:
     if interpolating_factor < 1:
         raise ValueError("interpolating_factor must be greater than or equal to 1")
+    if res_downscaling < 1:
+        raise ValueError("res_downscaling must be greater than or equal to 1")
 
     video_params = {} if video_params is None else video_params
+    output_size = (
+        max(1, int(round(size[0] / res_downscaling))),
+        max(1, int(round(size[1] / res_downscaling))),
+    )
     finish_frame: Callable[[pygame.Surface, int, int], None]
     close_frame_output: Callable[[], None] = lambda: None
     max_steps: int | None = None
 
     if video_render:
         finish_frame, close_frame_output, max_steps = setup_video_rendering(
-            size=size,
+            size=output_size,
             fps=fps,
             interpolating_factor=interpolating_factor,
             video_params=video_params,
@@ -248,7 +255,7 @@ def main(
         screen = None
         clock = None
     else:
-        screen = pygame.display.set_mode(size)
+        screen = pygame.display.set_mode(output_size)
         pygame.display.set_caption(title)
         clock = pygame.time.Clock()
         finish_frame = lambda frame_surface, frame_fps, video_repeats=1: _present_frame(
@@ -261,17 +268,27 @@ def main(
     frame_surface = pygame.Surface(size, depth=32)
     if screen is not None:
         frame_surface = frame_surface.convert()
+    scaled_output_surface = pygame.Surface(output_size, depth=32)
+    if screen is not None:
+        scaled_output_surface = scaled_output_surface.convert()
 
     def finish_processed_frame(
         frame_fps: int,
         video_repeats: int = 1,
     ) -> None:
-        output_surface = (
+        processed_surface = (
             perspective_params.apply(frame_surface)
             if perspective_params is not None
             else frame_surface
         )
-        finish_frame(output_surface, frame_fps, video_repeats)
+        if processed_surface.get_size() != output_size:
+            pygame.transform.smoothscale(
+                processed_surface,
+                output_size,
+                scaled_output_surface,
+            )
+            processed_surface = scaled_output_surface
+        finish_frame(processed_surface, frame_fps, video_repeats)
 
     running = True
     step_count = 0

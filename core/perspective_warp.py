@@ -71,8 +71,8 @@ class PerspectiveWarp:
             indices and then uses np.take each frame. That is nearest-neighbor
             sampling, not bilinear filtering, so thin lines can look jagged after
             perspective compression. For nicer grid lines, draw them thicker,
-            render the source at a higher resolution and downscale afterward, or
-            add a future bilinear sampling mode.
+            use a larger logical size with main(..., res_downscaling=2), or add
+            a future bilinear sampling mode.
         """
         if top_drop < 0.0 or top_drop >= 1.0:
             raise ValueError("top_drop must be in [0.0, 1.0)")
@@ -112,7 +112,8 @@ class PerspectiveWarp:
             & (u <= 1.0)
         )
         # Integer indices make apply() very fast, but this is nearest-neighbor
-        # sampling. High-contrast 1px lines will alias after perspective warp.
+        # sampling. High-contrast 1px lines will alias after perspective warp;
+        # renderer.main(..., res_downscaling=N) supersamples before final output.
         xi = np.clip(xs, 0, w - 1).astype(np.intp)
         yi = np.clip(ys, 0, h - 1).astype(np.intp)
         self._flat_idx = (xi * h + yi).ravel()
@@ -122,6 +123,10 @@ class PerspectiveWarp:
         self._surface = pygame.Surface(size, depth=32)
         self._background_rgb = self._surface.map_rgb(background)
         self._out[:] = self._background_rgb
+        self.top_drop = top_drop
+        self.top_pull = top_pull
+        self.bottom_lift = bottom_lift
+        self.bottom_pull = bottom_pull
 
     def apply(self, frame: pygame.Surface) -> pygame.Surface:
         if frame.get_size() != self.size:
