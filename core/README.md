@@ -103,3 +103,23 @@ main(
 `quality` maps to ffmpeg `crf`, where lower numbers mean higher quality.
 `num_frames` is the number of simulation steps to run; interpolation can produce
 multiple video frames for each step.
+
+## Perspective Warp
+
+`main(...)` can apply a final perspective post-process before presenting a frame
+to the screen or writing it to video:
+
+```python
+main(
+    visual,
+    perspective_params=PerspectiveWarp(
+        (800, 600),
+        horizon=0.30,
+        depth=3.0,
+        background=(20, 20, 30),
+    ),
+)
+```
+
+The world still renders normally into a 2D frame first. The warp is applied only
+at the final output step.
