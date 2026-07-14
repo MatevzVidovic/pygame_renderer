@@ -7,6 +7,7 @@ from core.renderer import (
     ObjectTree,
     RGB,
     Rect,
+    Elipse,
     Splat,
     VisualProgram,
     main,
@@ -22,11 +23,17 @@ GRID_LINE_THICKNESS = 2
 BLOCK_ID = "moving-block"
 
 
+# def sticky_stop(t: float | np.ndarray) -> float | np.ndarray:
+#     t = np.asarray(t)
+#     smooth = t * t * (3 - 2 * t)
+#     shake = 0.8 * np.sin(5 * np.pi * t) * t * t * (1 - t)
+#     return smooth + shake
+
+
 def sticky_stop(t: float | np.ndarray) -> float | np.ndarray:
     t = np.asarray(t)
     smooth = t * t * (3 - 2 * t)
-    shake = 0.8 * np.sin(5 * np.pi * t) * t * t * (1 - t)
-    return smooth + shake
+    return smooth
 
 
 class InterpolationTest(VisualProgram):
@@ -40,7 +47,7 @@ class InterpolationTest(VisualProgram):
             SCREEN_SIZE[1],
             CoordinatePlacing.TOP_LEFT,
         )
-        self.block = Rect(CELL_SIZE * 0.68, RGB(242, 116, 87), CELL_SIZE * 0.68)
+        self.block = Elipse(CELL_SIZE * 0.68, RGB(242, 116, 87), CELL_SIZE * 0.68)
         self.grid_lines = self._make_grid_lines()
 
     def step(self) -> None:
@@ -54,13 +61,13 @@ class InterpolationTest(VisualProgram):
     def get_object_tree(self) -> ObjectTree:
         return [
             Splat(self.background, (0, 0)),
+            self.grid_lines,
             Splat(
                 self.block,
                 self.position,
                 id=BLOCK_ID,
                 interpolating_fn=sticky_stop,
             ),
-            self.grid_lines,
         ]
 
     def _cell_center(self, cell: np.ndarray) -> np.ndarray:
@@ -112,7 +119,7 @@ def run() -> None:
         fps=2,
         title="Interpolation Test",
         background_color=RGB(21, 24, 31),
-        interpolating_factor=28,
+        interpolating_factor=70,
     )
 
 
