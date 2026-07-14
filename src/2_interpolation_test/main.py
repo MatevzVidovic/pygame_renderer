@@ -13,11 +13,11 @@ from core.renderer import (
     main,
 )
 
-RES_DOWNSCALING = 3
 GRID_DIM = 8
 RESOLUTION_SETTING = 4
 
 
+RES_DOWNSCALING = 1 * RESOLUTION_SETTING
 SCREEN_SIZE = 2 * (540 * RESOLUTION_SETTING,)
 GRID_SIZE = 460 * RESOLUTION_SETTING
 GRID_TOP = 30 * RESOLUTION_SETTING
@@ -121,16 +121,17 @@ def run() -> None:
         background_color=RGB(21, 24, 31),
         interpolating_factor=28,
         res_downscaling=RES_DOWNSCALING,
-        perspective_params=PerspectiveWarp(
-            SCREEN_SIZE,
-            # top_drop=0.3,
-            # top_pull=0.8,
-            top_drop=0.0,
-            top_pull=0.2,
-            bottom_lift=0.0,
-            bottom_pull=0.0,
-            background=(21, 24, 31),
-        ),
+        perspective_params=None,
+        # perspective_params=PerspectiveWarp(
+        #     SCREEN_SIZE,
+        #     # top_drop=0.3,
+        #     # top_pull=0.8,
+        #     top_drop=0.0,
+        #     # top_pull=0.2,
+        #     bottom_lift=0.0,
+        #     bottom_pull=0.0,
+        #     background=(21, 24, 31),
+        # ),
     )
 
 
