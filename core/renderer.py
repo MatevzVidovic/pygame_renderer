@@ -272,7 +272,12 @@ def main(
                     if event.type == pygame.QUIT:
                         running = False
 
-            program.step()
+            try:
+                program.step()
+            except StopIteration:
+                # A program may use this to end the renderer cleanly, without
+                # treating normal completion as an application error.
+                break
             object_tree = program.get_object_tree()
 
             if interpolating_factor == 1:
