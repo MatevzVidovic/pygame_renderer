@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import Future
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, auto
 from queue import Queue
 from threading import Lock
 from weakref import WeakSet
@@ -17,6 +17,26 @@ from state import State
 GRID_DIM = 8
 
 
+class GameModeEnum(Enum):
+    UNIFORM = auto()
+    AVOIDANT = auto()
+    MARKOV_CHAIN = auto()
+
+
+GAME_MODE = GameModeEnum.UNIFORM
+
+# MARKOV_CHAIN mode setting:
+MARKOV_MATRIX = np.random.dirichlet(np.ones(9)).reshape((3, 3))
+
+
+class InitOps:
+    @staticmethod
+    def set_game_mode(mode: GameModeEnum) -> None:
+        """Select the mouse movement rule before starting the game."""
+        global GAME_MODE
+        GAME_MODE = mode
+
+
 class Direction(Enum):
     RIGHT = (0, 1)
     UP = (-1, 0)
@@ -27,29 +47,30 @@ class Direction(Enum):
 @dataclass
 class Move:
     direction: Direction
-    reply: Future["State"] | None = None
+    reply: Future[object] | None = None
     demands_step: bool = True
 
 
 @dataclass
 class ScoutMouse:
-    reply: Future["State"] | None = None
+    reply: Future[object] | None = None
     demands_step: bool = False
 
 
 @dataclass
 class ScoutYourself:
-    reply: Future["State"] | None = None
+    reply: Future[object] | None = None
     demands_step: bool = False
 
 
 # SteppableTask = Move
-Task = Move | ScoutMouse  # | Sth
+Task = Move | ScoutMouse | ScoutYourself
 
 
-def reply_set(task, rpl):
+def reply_set(task: Task, result: object) -> None:
+    assert task.reply is not None
     if not task.reply.done():
-        task.reply.set_result(rpl)
+        task.reply.set_result(result)
 
 
 class DriverClosed(RuntimeError):
@@ -76,7 +97,7 @@ class Ops:
 
     def _resolve(self, task: Task):
         """Move one cell in ``direction`` and wait for its animation."""
-        reply: Future[State] = Future()
+        reply: Future[object] = Future()
         task.reply = reply
         with self._problem._lock:
             if self._problem._closed:
@@ -90,12 +111,74 @@ class TaskResolver:
     """Applies a queued task to the current game state."""
 
     @staticmethod
-    def resolve(state: State, task: Task) -> (State, bool):
-
+    def resolve(state: State, task: Task) -> tuple[State, bool]:
         if isinstance(task, Move):
             delta = np.array(task.direction.value)
-            robot_pos = state.robot_pos + delta
-            mouse_pos = np.clip(state.mouse_pos + np.random.randint(-1, 2, 2), 0, GRID_DIM - 1)
+            requested_robot_pos = state.robot_pos + delta
+            move_succeeded = bool(
+                np.all(requested_robot_pos >= 0)
+                and np.all(requested_robot_pos < GRID_DIM)
+            )
+            robot_pos = requested_robot_pos if move_succeeded else state.robot_pos
+
+            if GAME_MODE == GameModeEnum.UNIFORM:
+                mouse_pos = np.clip(state.mouse_pos + np.random.randint(-1, 2, 2), 0, GRID_DIM - 1)
+
+                # or:
+
+                # uniform = np.ones(shape)
+                # uniform = uniform / uniform.sum()  # whole matrix sums to 1
+
+                # # lets choose a valid move:
+                # invalid = True
+                # while invalid:
+                #     flat_idx = np.random.choice(
+                #         uniform.size, p=uniform.ravel()
+                #     )  # draw index 0..8 with probs of uniform
+                #     i, j = np.unravel_index(flat_idx, uniform.shape)  # back to (row, col)
+                #     mouse_pos = state.mouse_pos + np.array([i - 1, j - 1])
+                #     if mouse_pos == np.clip(mouse_pos, 0, GRID_DIM - 1):
+                #         invalid = False
+
+            elif GAME_MODE == GameModeEnum.AVOIDANT:
+                direction = state.mouse_pos - state.robot_pos
+
+                P = np.zeros((3, 3))
+                # the direction that the place in the matrix represents should be
+                # proportional to how similar that direction is
+                # to the direction from the robot to the mouse.
+                # We use the scalar product for this.
+                for i in range(-1, 2):
+                    for j in range(-1, 2):
+                        similarity = np.dot(np.array([i, j]), direction)
+                        P[i, j] = similarity
+
+                P += min(P)
+                P = P / P.sum()
+
+                # lets choose a valid move:
+                invalid = True
+                while invalid:
+                    flat_idx = np.random.choice(P.size, p=P.ravel())  # draw index 0..8 with probs of uniform
+                    i, j = np.unravel_index(flat_idx, P.shape)  # back to (row, col)
+                    mouse_pos = state.mouse_pos + np.array([i - 1, j - 1])
+                    if mouse_pos == np.clip(mouse_pos, 0, GRID_DIM - 1):
+                        invalid = False
+
+            elif GAME_MODE == GameModeEnum.MARKOV_CHAIN:
+                P = MARKOV_MATRIX
+                flat_idx = np.random.choice(P.size, p=P.ravel())  # draw index 0..8 with probs P
+                i, j = np.unravel_index(flat_idx, P.shape)  # back to (row, col)
+
+                # lets choose a valid move:
+                invalid = True
+                while invalid:
+                    flat_idx = np.random.choice(P.size, p=P.ravel())  # draw index 0..8 with probs of uniform
+                    i, j = np.unravel_index(flat_idx, P.shape)  # back to (row, col)
+                    mouse_pos = state.mouse_pos + np.array([i - 1, j - 1])
+                    if mouse_pos == np.clip(mouse_pos, 0, GRID_DIM - 1):
+                        invalid = False
+
             if np.any(robot_pos >= GRID_DIM) or np.any(robot_pos < 0):
                 reply_set(task, False)
                 next_state = State(state.robot_pos, mouse_pos)
@@ -116,9 +199,9 @@ class CatchingMiceProblem:
     """Owns lifecycle and resolves queued tasks into game state."""
 
     def __init__(self) -> None:
-        self._tasks: Queue[Move | object] = Queue()
+        self._tasks: Queue[Task | object] = Queue()
         self._lock = Lock()
-        self._pending: WeakSet[Future[State]] = WeakSet()
+        self._pending: WeakSet[Future[object]] = WeakSet()
         self._closed = False
 
     def init(self) -> State:

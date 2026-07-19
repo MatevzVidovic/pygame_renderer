@@ -35,7 +35,7 @@ x = delta[1]
 We use the standard coordinates of arrays and image processing
 (which differ from the usual graphing coordinate system):
 
-y \ x ->
+y \\ x ->
 | [] [] [] []
 v [] [] [] [M]
   [R] [] [] []
@@ -109,13 +109,22 @@ but instead figuting out the best direction at the moment.
 
 # More complicated versions of the game
 
-At top of main()
-you can use init_ops(MODE.sthsth)
-so that the mouse has different movements and the game gets more complicated. 
+At the top of `main()` you can select a game mode:
+
+from problem_driver import GameModeEnum, InitOps
+InitOps.set_game_mode(GameModeEnum.MARKOV_CHAIN)
+
+Set the mode before making any calls to `ops.move()`.
+
+## AVOIDANT
+
+Use `InitOps.set_game_mode(GameModeEnum.AVOIDANT)` to make the mouse prefer
+legal moves that leave it farther from the robot. It still chooses randomly, so
+it is not perfectly predictable.
 
 ## MARKOV_CHAIN
 
-Use init_ops(MODE.MARKOV_CHAIN)
+Use `InitOps.set_game_mode(GameModeEnum.MARKOV_CHAIN)`
 so that the mouse doesn't move uniformly,
 but instead starts out with random probabilities for each direction of movement.
 
