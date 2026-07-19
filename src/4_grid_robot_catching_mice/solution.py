@@ -1,6 +1,6 @@
 """Write the robot strategy here; it can use normal sequential Python."""
 
-from problem_driver import Direction, Ops
+from problem_driver import Direction, Ops, InitOps, GameModeEnum
 
 """
 
@@ -158,18 +158,52 @@ and update it based on how the mouse moves.
 
 def main(ops: Ops) -> None:
 
+    InitOps.set_game_mode(GameModeEnum.AVOIDANT)
+    # InitOps.set_game_mode(GameModeEnum.MARKOV_CHAIN)
+
+    while True:
+        print("ja")
+        print(ops.scout_yourself())
+        cat = ops.scout_yourself()
+        print(ops.scout_for_mouse())
+        maus = ops.scout_for_mouse()
+        delta = maus - cat
+        print(delta)
+        y = delta[0]
+        x = delta[1]
+        if x < 0 and y < 0:
+            if abs(x) > abs(y):
+                ops.move(Direction.LEFT)
+            else:
+                ops.move(Direction.UP)
+        elif x < 0 and y >= 0:
+            if abs(x) > abs(y):
+                ops.move(Direction.LEFT)
+            else:
+                ops.move(Direction.DOWN)
+        elif x >= 0 and y < 0:
+            if abs(x) > abs(y):
+                ops.move(Direction.RIGHT)
+            else:
+                ops.move(Direction.UP)
+        else:
+            if abs(x) > abs(y):
+                ops.move(Direction.RIGHT)
+            else:
+                ops.move(Direction.DOWN)
+
     ## Showcase of how fns can be used
 
     # Each move waits until the requested move has been drawn before returning.
-    print(ops.scout_yourself())
-    print("aaaa")
-    for i in range(8):
-        ops.move(Direction.RIGHT)
-        mouse_pos = ops.scout_for_mouse()
-        print(mouse_pos)
-    ops.move(Direction.DOWN)
-    ops.move(Direction.LEFT)
-    ops.move(Direction.UP)
+    # print(ops.scout_yourself())
+    # print("aaaa")
+    # for i in range(8):
+    #     ops.move(Direction.RIGHT)
+    #     mouse_pos = ops.scout_for_mouse()
+    #     print(mouse_pos)
+    # ops.move(Direction.DOWN)
+    # ops.move(Direction.LEFT)
+    # ops.move(Direction.UP)
 
     ## Solutions:
 
