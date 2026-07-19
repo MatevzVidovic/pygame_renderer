@@ -27,6 +27,10 @@ GAME_MODE = GameModeEnum.UNIFORM
 
 # MARKOV_CHAIN mode setting:
 MARKOV_MATRIX = np.random.dirichlet(np.ones(9)).reshape((3, 3))
+AVOIDANCE_STRENGTH = 0.5
+
+# Row-major order matches MARKOV_MATRIX.ravel(): (-1, -1), (-1, 0), ... (1, 1).
+MOUSE_DELTAS = np.array([(row, col) for row in range(-1, 2) for col in range(-1, 2)])
 
 
 class InitOps:
@@ -122,69 +126,16 @@ class TaskResolver:
             robot_pos = requested_robot_pos if move_succeeded else state.robot_pos
 
             if GAME_MODE == GameModeEnum.UNIFORM:
-                mouse_pos = np.clip(state.mouse_pos + np.random.randint(-1, 2, 2), 0, GRID_DIM - 1)
-
-                # or:
-
-                # uniform = np.ones(shape)
-                # uniform = uniform / uniform.sum()  # whole matrix sums to 1
-
-                # # lets choose a valid move:
-                # invalid = True
-                # while invalid:
-                #     flat_idx = np.random.choice(
-                #         uniform.size, p=uniform.ravel()
-                #     )  # draw index 0..8 with probs of uniform
-                #     i, j = np.unravel_index(flat_idx, uniform.shape)  # back to (row, col)
-                #     mouse_pos = state.mouse_pos + np.array([i - 1, j - 1])
-                #     if mouse_pos == np.clip(mouse_pos, 0, GRID_DIM - 1):
-                #         invalid = False
+                mouse_pos = _sample_mouse_position(state.mouse_pos)
 
             elif GAME_MODE == GameModeEnum.AVOIDANT:
-                direction = state.mouse_pos - state.robot_pos
-
-                P = np.zeros((3, 3))
-                # the direction that the place in the matrix represents should be
-                # proportional to how similar that direction is
-                # to the direction from the robot to the mouse.
-                # We use the scalar product for this.
-                for i in range(-1, 2):
-                    for j in range(-1, 2):
-                        similarity = np.dot(np.array([i, j]), direction)
-                        P[i, j] = similarity
-
-                P += min(P)
-                P = P / P.sum()
-
-                # lets choose a valid move:
-                invalid = True
-                while invalid:
-                    flat_idx = np.random.choice(P.size, p=P.ravel())  # draw index 0..8 with probs of uniform
-                    i, j = np.unravel_index(flat_idx, P.shape)  # back to (row, col)
-                    mouse_pos = state.mouse_pos + np.array([i - 1, j - 1])
-                    if mouse_pos == np.clip(mouse_pos, 0, GRID_DIM - 1):
-                        invalid = False
+                mouse_pos = _sample_avoidant_mouse_position(state.mouse_pos, robot_pos)
 
             elif GAME_MODE == GameModeEnum.MARKOV_CHAIN:
-                P = MARKOV_MATRIX
-                flat_idx = np.random.choice(P.size, p=P.ravel())  # draw index 0..8 with probs P
-                i, j = np.unravel_index(flat_idx, P.shape)  # back to (row, col)
+                mouse_pos = _sample_mouse_position(state.mouse_pos, MARKOV_MATRIX.ravel())
 
-                # lets choose a valid move:
-                invalid = True
-                while invalid:
-                    flat_idx = np.random.choice(P.size, p=P.ravel())  # draw index 0..8 with probs of uniform
-                    i, j = np.unravel_index(flat_idx, P.shape)  # back to (row, col)
-                    mouse_pos = state.mouse_pos + np.array([i - 1, j - 1])
-                    if mouse_pos == np.clip(mouse_pos, 0, GRID_DIM - 1):
-                        invalid = False
-
-            if np.any(robot_pos >= GRID_DIM) or np.any(robot_pos < 0):
-                reply_set(task, False)
-                next_state = State(state.robot_pos, mouse_pos)
-            else:
-                reply_set(task, True)
-                next_state = State(robot_pos, mouse_pos)
+            reply_set(task, move_succeeded)
+            next_state = State(robot_pos, mouse_pos)
         elif isinstance(task, ScoutMouse):
             reply_set(task, state.mouse_pos)
             next_state = state
@@ -193,6 +144,38 @@ class TaskResolver:
             next_state = state
 
         return next_state, task.demands_step
+
+
+def _sample_mouse_position(
+    mouse_pos: np.ndarray,
+    weights: np.ndarray | None = None,
+) -> np.ndarray:
+    """Choose one of the in-bounds mouse moves, optionally using its weights."""
+    candidates = mouse_pos + MOUSE_DELTAS
+    valid = np.all((candidates >= 0) & (candidates < GRID_DIM), axis=1)
+    valid_candidates = candidates[valid]
+
+    if weights is None:
+        return valid_candidates[np.random.randint(len(valid_candidates))]
+
+    valid_weights = np.asarray(weights, dtype=float).ravel()[valid]
+    valid_weights /= valid_weights.sum()
+    return valid_candidates[np.random.choice(len(valid_candidates), p=valid_weights)]
+
+
+def _sample_avoidant_mouse_position(
+    mouse_pos: np.ndarray,
+    robot_pos: np.ndarray,
+) -> np.ndarray:
+    """Prefer valid moves that leave the mouse farther from the robot."""
+    candidates = mouse_pos + MOUSE_DELTAS
+    squared_distances = np.sum((candidates - robot_pos) ** 2, axis=1)
+
+    # Softmax keeps every legal move possible while making greater distance more
+    # likely. Subtracting max is numerically stable and does not change ratios.
+    scores = AVOIDANCE_STRENGTH * squared_distances
+    weights = np.exp(scores - scores.max())
+    return _sample_mouse_position(mouse_pos, weights)
 
 
 class CatchingMiceProblem:
