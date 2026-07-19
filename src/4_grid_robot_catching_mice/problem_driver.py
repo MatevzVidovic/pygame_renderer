@@ -134,6 +134,9 @@ class TaskResolver:
             elif GAME_MODE == GameModeEnum.MARKOV_CHAIN:
                 mouse_pos = _sample_mouse_position(state.mouse_pos, MARKOV_MATRIX.ravel())
 
+            else:
+                raise ValueError(f"unsupported game mode: {GAME_MODE}")
+
             reply_set(task, move_succeeded)
             next_state = State(robot_pos, mouse_pos)
         elif isinstance(task, ScoutMouse):
