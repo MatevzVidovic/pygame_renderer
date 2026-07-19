@@ -37,6 +37,12 @@ class ScoutMouse:
     demands_step: bool = False
 
 
+@dataclass
+class ScoutYourself:
+    reply: Future["State"] | None = None
+    demands_step: bool = False
+
+
 # SteppableTask = Move
 Task = Move | ScoutMouse  # | Sth
 
@@ -64,6 +70,9 @@ class Ops:
 
     def scout_for_mouse(self) -> np.ndarray:
         return self._resolve(ScoutMouse())
+
+    def scout_yourself(self) -> np.ndarray:
+        return self._resolve(ScoutYourself())
 
     def _resolve(self, task: Task):
         """Move one cell in ``direction`` and wait for its animation."""
@@ -95,6 +104,9 @@ class TaskResolver:
                 next_state = State(robot_pos, mouse_pos)
         elif isinstance(task, ScoutMouse):
             reply_set(task, state.mouse_pos)
+            next_state = state
+        elif isinstance(task, ScoutYourself):
+            reply_set(task, state.robot_pos)
             next_state = state
 
         return next_state, task.demands_step
