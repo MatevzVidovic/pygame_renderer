@@ -83,50 +83,59 @@ In python, you can use this fn on any integer:
 abs(a) # gives absolute value of a
 
 
+
+
+
+
+
 ## Solution hints (skip at first, then read them one-by-one in their order):
 
 ### Hint 1
 
-First try to define the direction from the robot/cat to the mouse and work with that.
+Irst~fay y~tray o~tay efine~day e~thay irection~day om~fray e~thay obot~ray/at~cay o~tay e~thay ouse~may and~way ork~way
+ith~way at~thay.
 
 ### Hint 2
 
-A good first implementation is to first try to match one of the coordinates by moving towards the mouse.
-And if that one is already matched, try to match the second one also.
-You will generally be moving towards the mouse and increase your chances of a hit.
+A~way ood~gay irst~fay implementation~way is~way o~tay irst~fay y~tray o~tay atch~may one~way of~way e~thay
+oordinates~cay y~bay oving~may owards~tay e~thay ouse~may.
+And~way if~way at~thay one~way is~way already~way atched~may, y~tray o~tay atch~may e~thay econd~say one~way also~way.
+Ou~yay ill~way enerally~gay e~bay oving~may owards~tay e~thay ouse~may and~way increase~way our~yay ances~chay of~way
+a~way it~hay.
 
 
 ## Optimization hints (read later):
 
 ### Hint 1
 
-Try to move in the one of the 4 predefined directions that is 
-the most similar to the direction from the robot to the mouse.
-Not trying to match one coordinate first, and then the other,
-but instead figuting out the best direction at the moment.
+Y~tray o~tay ove~may in~way e~thay one~way of~way e~thay 4 edefined~pray irections~day at~thay is~way
+e~thay ost~may imilar~say o~tay e~thay irection~day om~fray e~thay obot~ray o~tay e~thay ouse~may.
+Ot~nay ying~tray o~tay atch~may one~way oordinate~cay irst~fay, and~way en~thay e~thay other~way,
+ut~bay instead~way iguting~fay out~way e~thay est~bay irection~day at~way e~thay oment~may.
 
 
 
 # More complicated versions of the game
 
-At the top of `main()` you can select a game mode:
+At~way e~thay op~tay of~way `main()` ou~yay an~cay elect~say a~way ame~gay ode~may:
 
 from problem_driver import GameModeEnum, InitOps
 InitOps.set_game_mode(GameModeEnum.MARKOV_CHAIN)
 
-Set the mode before making any calls to `ops.move()`.
+Et~say e~thay ode~may efore~bay aking~may any~way alls~cay o~tay `ops.move()`.
 
 ## AVOIDANT
 
-Use `InitOps.set_game_mode(GameModeEnum.AVOIDANT)` to make the mouse prefer
-legal moves that leave it farther from the robot. It still chooses randomly, so
-it is not perfectly predictable.
+Use~way `InitOps.set_game_mode(GameModeEnum.AVOIDANT)` o~tay ake~may e~thay ouse~may efer~pray
+egal~lay oves~may at~thay eave~lay it~way arther~fay om~fray e~thay obot~ray. It~way ill~stay ooses~chay andomly~ray,
+o~say
+it~way is~way ot~nay erfectly~pay edictable~pray.
 
 ## MARKOV_CHAIN
 
-Use `InitOps.set_game_mode(GameModeEnum.MARKOV_CHAIN)`
-so that the mouse doesn't move uniformly,
-but instead starts out with random probabilities for each direction of movement.
+Use~way `InitOps.set_game_mode(GameModeEnum.MARKOV_CHAIN)`
+o~say at~thay e~thay ouse~may oes~day't~nay ove~may uniformly~way,
+ut~bay instead~way arts~stay out~way ith~way andom~ray obabilities~pray or~fay each~way irection~day of~way ovement~may.
 
 ## Hints
 
@@ -134,21 +143,22 @@ but instead starts out with random probabilities for each direction of movement.
 
 ### Hint 1:
 
-Before each move, scout the position of the mouse.
-After each move, scout where the mouse landed.
-You can use that data to make a guess at the markov chain matrix it is 
-using and approach it faster.
+Efore~bay each~way ove~may, out~scay e~thay osition~pay of~way e~thay ouse~may.
+After~way each~way ove~may, out~scay ere~whay e~thay ouse~may anded~lay.
+Ou~yay an~cay use~way at~thay ata~day o~tay ake~may a~way uess~gay at~way e~thay arkov~may ain~chay atrix~may it~way
+is~way
+using~way and~way approach~way it~way aster~fay.
 
 ### Hint 2:
 
-Don't take the movements that happened so far at their face value.
-Perhaps you used the approach of:
+On~day't~nay ake~tay e~thay ovements~may at~thay appened~hay o~say ar~fay at~way eir~thay ace~fay alue~vay.
+Erhaps~pay ou~yay used~way e~thay approach~way of~way:
 m = matrix_of_moves_so_far
 p = matrix_of_moves_so_far / sum_of_elements(matrix_of_moves_so_far)
-(frequentist approach)
+(equentist~fray approach~way)
 
-Instead use a bayesian approach, where you assume some initial distribution,
-and update it based on how the mouse moves.
+Instead~way use~way a~way ayesian~bay approach~way, ere~whay ou~yay assume~way ome~say initial~way istribution~day,
+and~way update~way it~way ased~bay on~way ow~hay e~thay ouse~may oves~may.
 
 
 
